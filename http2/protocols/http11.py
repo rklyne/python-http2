@@ -162,7 +162,6 @@ class Http11MessageHandler(object):
     def handle_request(self, message, connection):
         # Process control messages
         pass
-        print "REQUEST %s for '%s'"%(message.method, message.url)
         # Pass request to dispatcher
         #raise RuntimeError(message.__dict__)
         method = message.method
