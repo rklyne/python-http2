@@ -1,10 +1,10 @@
-import http2
+import message
 
 class StreamFormat(object):
     def __init__(self, 
-        request_message_class=http2.RequestMessage,
-        response_message_class=http2.ResponseMessage,
-        headers_class=http2.Headers,
+        request_message_class=message.RequestMessage,
+        response_message_class=message.ResponseMessage,
+        headers_class=message.Headers,
     ):
         self.request_message_class = request_message_class 
         self.response_message_class = response_message_class 

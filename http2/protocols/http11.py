@@ -1,7 +1,6 @@
 import http2
 
-
-class Http11StreamFormat(http2.StreamFormat):
+class Http11StreamFormat(http2.streamformat.StreamFormat):
     """A HTTP 1.1 TCP stream
     """
 
@@ -170,24 +169,24 @@ class Http11MessageHandler(object):
         headers = message.headers
         body = message.body
         url = message.url
-        request = http2.Request(method, url, headers, body)
+        request = http2.request.Request(method, url, headers, body)
         response = connection.dispatch_request(request)
         return response
         
     def handle_response(self, message, connection):
         raise NotImplementedError
 
-Http11 = http2.Protocol(
+Http11 = http2.protocol.Protocol(
     'HTTP/1.1',
     Http11StreamFormat(),
     Http11MessageHandler(),
 )
 
-class Http11Server(http2.Server):
+class Http11Server(http2.server.Server):
     def __init__(self, dispatcher):
         super(Http11Server, self).__init__(Http11, dispatcher)
     
-class Http11Client(http2.Client):
+class Http11Client(http2.client.Client):
     def __init__(self, *t, **k):
         super(Http11Client, self).__init__(Http11, *t, **k)
             
