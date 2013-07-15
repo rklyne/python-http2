@@ -16,6 +16,7 @@ class PushbackStream(object):
     def done_sending(self):
         import socket
         self.sock.shutdown(socket.SHUT_WR)
+        self.flush()
 
     def read(self, count, timeout=5, loop_delay=0.01):
         if self.buffer:

@@ -2,6 +2,9 @@ import http2
 
 
 class Http11StreamFormat(http2.StreamFormat):
+    """A HTTP 1.1 TCP stream
+    """
+
     NL = "\r\n"
 #    def __init__(self, message_class=Message): 
 #        self.message_class = message_class
@@ -18,7 +21,6 @@ class Http11StreamFormat(http2.StreamFormat):
         stream.write(s.getvalue())
         if request.body is not None:
             stream.write(request.body)
-        stream.flush()
         stream.done_sending()
 
     def read_request_from_stream(self,
