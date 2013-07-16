@@ -1,6 +1,6 @@
 import unittest
 
-from fakestream import *
+from fakes import FakeStream
 
 class Http11ReadTests(unittest.TestCase):
     def setUp(self):

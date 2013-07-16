@@ -2,7 +2,7 @@ import unittest
 
 class TestPushbackStream(unittest.TestCase):
     def stream(self, data):
-        from fakestream import *
+        from fakes import *
         s = FakeStream(data)
         return s
 

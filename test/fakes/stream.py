@@ -4,12 +4,19 @@ __all__ = [
     'FakeStream',
 ]
 class FakeStream(object):
+    """Fakes a socket.
+    """
     def __init__(self, data):
         self.data = data
         import cStringIO as StringIO
         self.sb = StringIO.StringIO()
+        self.returned_empty = False
     def recv(self, count):
         result, self.data= self.data[:count], self.data[count:]
+        if self.returned_empty:
+            raise RuntimeError("Called read on an empty socket")
+        if not result:
+            self.returned_empty = True
         return result
 
     def setblocking(self, value):
