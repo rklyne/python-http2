@@ -6,9 +6,13 @@ class FrameHandler(object):
         frame_dispatcher,
         timeout=5,
     ):
+        import headers
         self.stream = stream
         self.dispatcher = frame_dispatcher
         self.timeout = timeout
+        self.header_reader = headers.HeaderCompressor()
+        self.header_buffers = {}
+        self.headers = {}
 
     def handle_one(self):
         import frame
@@ -17,6 +21,8 @@ class FrameHandler(object):
             self.handle_settings(data)
         elif data.type_id == frame.FRAME_DATA:
             self.handle_data(data)
+        elif data.type_id == frame.FRAME_HEADERS:
+            self.handle_headers(data)
         else:
             self.dispatcher.handle_unknown_frame(frame)
 
@@ -42,8 +48,29 @@ class FrameHandler(object):
             settings[key] = value
             start += bytes_per_setting
         self.dispatcher.new_settings(settings)
+
+    def handle_headers(self, frame):
+        end_stream = bool(frame.flags & 1)
+        end_headers = bool(frame.flags & 4)
+        priority = bool(frame.flags & 8)
+        data = frame.payload
+        if priority:
+            priority_val, data = data[:4], data[4:]
+            priority_val = struct.unpack("!i", priority_val)
+            self.dispatcher.set_stream_priority(frame.stream_id, priority_val)
+        self.header_buffers.setdefault(frame.stream_id, '')
+        self.header_buffers[frame.stream_id] += data
+        if end_headers:
+            # process_buffered_headers
+            data = self.header_buffers[frame.stream_id]
+            self.headers[frame.stream_id] = self.read_header_block(data)
+
+    def read_header_block(self, data):
+        return self.header_decodeer.read(data)
+
+
     def handle_unknown_frame(self, frame):
-        raise RuntimeError(frame)
+        raise RuntimeError("unknown frame type", frame)
 
     def read_frame(self):
         import frame as Frame

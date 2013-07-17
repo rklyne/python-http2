@@ -6,6 +6,8 @@ class FrameDispatcher(object):
         self.settings = {}
         self.data = {}
         self.closed = {}
+        import http2.protocols.http20draft4
+        self.headers = http2.protocols.http20draft4.Headers()
 
     def new_settings(self, settings):
         for k, v in settings.items():
@@ -87,9 +89,40 @@ class TestDataFrame(unittest.TestCase):
         handler.handle_one()
         self.failUnless(dispatcher.data)
         stream_id = 5
-        self.failUnless(stream_id in dispatcher.data)
+        self.failUnless(stream_id in dispatcher.data, "%s not in %s" %(stream_id, dispatcher.data.keys()))
         data = dispatcher.data[stream_id]
         self.assertEqual(data, "00070080000a0001".decode("hex"))
+        self.failUnless(dispatcher.was_closed(stream_id),
+            "did not close stream")
+
+
+class TestHeadersFrame(unittest.TestCase):
+    def get_single_frame(self):
+        return """
+        00 08 01 01 00 00 00 05
+        00 07  00 80
+        00 0a  00 01
+        """.replace(" ", "").replace("\n", "").decode("hex")
+    
+    def get_stream(self, data):
+        import http2
+        return http2.PushbackStream(fakes.Stream(data))
+
+    def test_headers_frame(self):
+        import http2.protocols.http20draft4 as http20
+        dispatcher = FrameDispatcher()
+        self.failIf(dispatcher.data)
+        frame = self.get_single_frame()
+        stream = self.get_stream(frame)
+        handler = http20.FrameHandler(stream, dispatcher)
+        handler.handle_one()
+        self.failUnless(dispatcher.headers)
+        stream_id = 5
+        self.failUnless(stream_id in dispatcher.headers, "%s not in %s" %(stream_id, dispatcher.headers.keys()))
+        data = dispatcher.headers[stream_id]
+        self.assertEqual(data, "00070080000a0001".decode("hex"))
+        self.failIf(dispatcher.was_closed(stream_id),
+            "closed stream")
 
 
 
