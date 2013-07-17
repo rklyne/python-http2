@@ -39,6 +39,9 @@ class FakeStream(object):
     def close(self):
         self.data = ""
 
+    def assertFinished(self):
+        assert not self.data
+
 class FakeStreamTests(unittest.TestCase):
     def test_fake_stream(self):
         data_in = "data stream"

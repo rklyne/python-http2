@@ -12,45 +12,95 @@ class HeaderTable(object):
         else:
             raise ValueError(type)
 
+    def __len__(self):
+        return len(self.lst)
+
+    def replace(self, num, k, v):
+        oldk, oldv = self.lst[num]
+        del self.map[oldk]
+        self.lst[num] = (k, v)
+        self.map[k] = num
+
     def init_response(self):
-        self.add(":status", "200", 0)
-        self.add("age", "", 1 )    
-        self.add("cache-control", "", 2 )    
-        self.add("content-length", "", 3 )    
-        self.add("content-type", "", 4)
-        self.add("date", "", 5)
-        self.add("etag", "", 6)
-        self.add("expires", "", 7)
-        self.add("last-modified", "", 8)
-        self.add("server", "", 9)
-        self.add("set-cookie", "", 10)
-        self.add("vary", "", 11)
-        self.add("via", "", 12)
-        self.add("access-control-allow-origin", "", 13)
-        self.add("accept-ranges", "", 14)
-        self.add("allow", "", 15)
-        self.add("connection", "", 16)
-        self.add("content-disposition", "", 17)
-        self.add("content-encoding", "", 18)
-        self.add("content-language", "", 19)
-        self.add("content-location", "", 20)
-        self.add("content-md5", "", 21)
-        self.add("content-range", "", 22)
-        self.add("link", "", 23)
-        self.add("location", "", 24)
-        self.add("p3p", "", 25)
-        self.add("pragma", "", 26)
-        self.add("proxy-authenticate", "", 27)
-        self.add("refresh", "", 28)
-        self.add("retry-after", "", 29)
-        self.add("strict-transport-security", "", 30)
-        self.add("trailer", "", 31)
-        self.add("transfer-encoding", "", 32)
-        self.add("warning", "", 33)
-        self.add("www-authenticate", "", 34)
+        self.add(u":status", u"200", 0)
+        self.add(u"age", u"", 1 )    
+        self.add(u"cache-control", u"", 2 )    
+        self.add(u"content-length", u"", 3 )    
+        self.add(u"content-type", u"", 4)
+        self.add(u"date", u"", 5)
+        self.add(u"etag", u"", 6)
+        self.add(u"expires", u"", 7)
+        self.add(u"last-modified", u"", 8)
+        self.add(u"server", u"", 9)
+        self.add(u"set-cookie", u"", 10)
+        self.add(u"vary", u"", 11)
+        self.add(u"via", u"", 12)
+        self.add(u"access-control-allow-origin", u"", 13)
+        self.add(u"accept-ranges", u"", 14)
+        self.add(u"allow", u"", 15)
+        self.add(u"connection", u"", 16)
+        self.add(u"content-disposition", u"", 17)
+        self.add(u"content-encoding", u"", 18)
+        self.add(u"content-language", u"", 19)
+        self.add(u"content-location", u"", 20)
+        self.add(u"content-md5", u"", 21)
+        self.add(u"content-range", u"", 22)
+        self.add(u"link", u"", 23)
+        self.add(u"location", u"", 24)
+        self.add(u"p3p", u"", 25)
+        self.add(u"pragma", u"", 26)
+        self.add(u"proxy-authenticate", u"", 27)
+        self.add(u"refresh", u"", 28)
+        self.add(u"retry-after", u"", 29)
+        self.add(u"strict-transport-security", u"", 30)
+        self.add(u"trailer", u"", 31)
+        self.add(u"transfer-encoding", u"", 32)
+        self.add(u"warning", u"", 33)
+        self.add(u"www-authenticate", u"", 34)
+
+    def init_request(self):
+        self.add(u':scheme', u'http', 0)
+        self.add(u':scheme', u'https', 1)
+        self.add(u':host', u'', 2)
+        self.add(u':path', u'/', 3)
+        self.add(u':method get', u'', 4)
+        self.add(u'accept', u'', 5)
+        self.add(u'accept-charset', u'', 6)
+        self.add(u'accept-encoding', u'', 7)
+        self.add(u'accept-language', u'', 8)
+        self.add(u'cookie', u'', 9)
+        self.add(u'if-modified-since', u'', 10)
+        self.add(u'keep-alive', u'', 11)
+        self.add(u'user-agent', u'', 12)
+        self.add(u'proxy-connection', u'', 13)
+        self.add(u'referer', u'', 14)
+        self.add(u'accept-datetime', u'', 15)
+        self.add(u'authorization', u'', 16)
+        self.add(u'allow', u'', 17)
+        self.add(u'cache-control', u'', 18)
+        self.add(u'connection', u'', 19)
+        self.add(u'content-length', u'', 20)
+        self.add(u'content-md5', u'', 21)
+        self.add(u'content-type', u'', 22)
+        self.add(u'date', u'', 23)
+        self.add(u'expect', u'', 24)
+        self.add(u'from', u'', 25)
+        self.add(u'if-match', u'', 26)
+        self.add(u'if-none-match', u'', 27)
+        self.add(u'if-range', u'', 28)
+        self.add(u'if-unmodified-since', u'', 29)
+        self.add(u'max-forwards', u'', 30)
+        self.add(u'pragma', u'', 31)
+        self.add(u'proxy-authorization', u'', 32)
+        self.add(u'range', u'', 33)
+        self.add(u'te', u'', 34)
+        self.add(u'upgrade', u'', 35)
+        self.add(u'via', u'', 36)
+        self.add(u'warning', u'', 37)
+
     def add(self, name, value, at_index=None):
-        assert isinstance(name, str), name
-        assert isinstance(value, str), value
+        assert isinstance(name, unicode), `name`
+        assert isinstance(value, unicode), `value`
         i = len(self.lst)
         if at_index is not None:
             if i != at_index:
@@ -60,8 +110,12 @@ class HeaderTable(object):
         return i
 
     def get_by_index(self, idx):
-        return self.lst[idx]
+        try:
+            return self.lst[idx]
+        except IndexError:
+            raise IndexError(idx, len(self.lst))
     def get_by_name(self, name):
+        raise RuntimeError("NotSupported. Should not come up...")
         return self.lst[self.map[name]]
 
 

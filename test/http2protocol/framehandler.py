@@ -7,7 +7,7 @@ class FrameDispatcher(object):
         self.data = {}
         self.closed = {}
         import http2.protocols.http20draft4
-        self.headers = http2.protocols.http20draft4.Headers()
+        self.headers = {}
 
     def new_settings(self, settings):
         for k, v in settings.items():
@@ -27,6 +27,9 @@ class FrameDispatcher(object):
 
     def handle_unknown_frame(self, frame):
         raise RuntimeError(frame)
+
+    def set_headers(self, stream, headers):
+        self.headers[stream] = headers
 
 class TestSettingsFrame(unittest.TestCase):
     def get_frame(self):
@@ -99,9 +102,9 @@ class TestDataFrame(unittest.TestCase):
 class TestHeadersFrame(unittest.TestCase):
     def get_single_frame(self):
         return """
-        00 08 01 01 00 00 00 05
-        00 07  00 80
-        00 0a  00 01
+        00 05 01 04 00 00 00 05
+        44 02 61 61
+        80
         """.replace(" ", "").replace("\n", "").decode("hex")
     
     def get_stream(self, data):
@@ -116,11 +119,14 @@ class TestHeadersFrame(unittest.TestCase):
         stream = self.get_stream(frame)
         handler = http20.FrameHandler(stream, dispatcher)
         handler.handle_one()
+        stream.sock.assertFinished()
         self.failUnless(dispatcher.headers)
         stream_id = 5
         self.failUnless(stream_id in dispatcher.headers, "%s not in %s" %(stream_id, dispatcher.headers.keys()))
-        data = dispatcher.headers[stream_id]
-        self.assertEqual(data, "00070080000a0001".decode("hex"))
+        headers = dispatcher.headers[stream_id]
+        self.assertEqual(len(headers), 2, headers.headers)
+        self.assertEqual(headers.getall(':status'), ['200'])
+        self.assertEqual(headers.getall('content-length'), [u'aa'])
         self.failIf(dispatcher.was_closed(stream_id),
             "closed stream")
 

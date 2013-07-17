@@ -1,11 +1,44 @@
 import unittest
 
+class TestTable(unittest.TestCase):
+    def setUp(self):
+        from http2.protocols.http20draft4 import HeaderTable
+        self.t = HeaderTable('request')
+    
+    def test_adding(self):
+        c0 = len(self.t)
+        c = len(self.t) / 2
+        self.t.replace(c, u"XXX", u"YYY")
+        self.assertEqual(len(self.t), c0)
+        x,y = self.t.get_by_index(c)
+        self.assertEqual(x, u"XXX")
+        self.assertEqual(y, u"YYY")
+    
+    def test_adding(self):
+        c = len(self.t)
+        self.t.add(u"XXX", u"YYY")
+        self.assertEqual(len(self.t), c+1)
+        x,y = self.t.get_by_index(c)
+        self.assertEqual(x, u"XXX")
+        self.assertEqual(y, u"YYY")
+
 class TestDecompressor(unittest.TestCase):
     def setUp(self):
         from http2.protocols.http20draft4 import ResponseHeaderDecompressor
         self.c = ResponseHeaderDecompressor()
 
-    def test_read_simple(self):
+    def test_substitution(self):
+        header = self.c.decode("\x04\x10\x0a1234567890")
+        self.assertEqual(len(header), 1)
+        self.assertEqual(header.getall('content-length'), ['1234567890'])
+        self.assertEqual(
+            self.c.table.get_by_index(16),
+            ('content-length', '1234567890'),
+        )
+        
+    def test_read_big_block(self):
+        from http2.protocols.http20draft4 import RequestHeaderDecompressor
+        self.c = RequestHeaderDecompressor()
         """
 > var decompressor = new Decompressor('REQUEST');
 
@@ -52,7 +85,7 @@ class TestDecompressor(unittest.TestCase):
             '61646572056669727374'
         ).decode("hex")
         headers1 = self.c.decode(block1)
-        self.failUnless(headers1)
+        self.assertIsNotNone(headers1)
 
         block2 = (
             'a6a804261f2f6d792d6578616d706c65'
@@ -61,7 +94,7 @@ class TestDecompressor(unittest.TestCase):
         ).decode("hex")
 
         headers2 = self.c.decode(block2)
-        self.failUnless(headers2)
+        self.assertIsNotNone(headers2)
 
 class TestHeaderTokeniser(unittest.TestCase):
     def setUp(self):
@@ -80,24 +113,40 @@ class TestHeaderTokeniser(unittest.TestCase):
     def test_double_string_literal(self):
         self.t = self.new("0161 0162".replace(" ", "").decode("hex"))
         s1 = self.t.read_string()
+        self.failUnless(self.t.has_more(), (self.t.__dict__))
         s2 = self.t.read_string()
+        self.failIf(self.t.has_more())
         self.assertEquals(s1, "a")
         self.assertEquals(s2, "b")
 
-    def test_bwo_byte_unprefixed_int(self):
-        self.t = self.new("8800".decode("hex"))
-        r = self.t.read_int()
-        self.assertEqual(r, 1024)
+    def test_three_byte_unprefixed_int(self):
+#       +---+---+---+---+---+---+---+---+
+#       | X | X | X | 1 | 1 | 1 | 1 | 1 |   Prefix = 31
+#       | 1 | 0 | 0 | 1 | 1 | 0 | 1 | 0 |   Q>=1, R=26
+#       | 0 | 0 | 0 | 0 | 1 | 0 | 1 | 0 |   Q=0 , R=10
+#       +---+---+---+---+---+---+---+---+
+        self.t = self.new("ff9a0a".decode("hex"))
+        b = self.t.read_byte_as_int()
+        self.assertEquals(b, 255)
+        r = self.t.read_int(5, b)
+        self.assertEqual(r, 1337)
+
+    def test_two_byte_unprefixed_int(self):
+        self.t = self.new("ff8800".decode("hex"))
+        r = self.t.read_int(0, self.t.read_byte_as_int())
+        self.assertEqual(r, 1151)
 
     def test_unprefixed_int(self):
         self.t = self.new("00".decode("hex"))
-        r = self.t.read_int()
+        r = self.t.read_int(0, 0)
         self.assertEqual(r, 0)
 
     def test_prefixed_int(self):
         self.t = self.new("")
-        r1 = self.t.read_int(5, 129)
+        r1 = self.t.read_int(5, int('10000001', 2))
         r2 = self.t.read_int(5, 1)
         self.assertEqual(r1, 1)
         self.assertEqual(r2, 1)
+        r = self.t.read_int(6, int('11011111', 2))
+        self.assertEqual(r, 31)
 

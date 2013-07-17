@@ -5,14 +5,21 @@ class FrameHandler(object):
         stream,
         frame_dispatcher,
         timeout=5,
+        mode='response',
     ):
         import headers
         self.stream = stream
         self.dispatcher = frame_dispatcher
         self.timeout = timeout
-        self.header_reader = headers.HeaderCompressor()
+        if mode == 'response':
+            self.header_decoder = headers.ResponseHeaderDecompressor()
+            self.header_encoder = headers.ResponseHeaderCompressor()
+        elif mode == 'request':
+            self.header_decoder = headers.RequestHeaderDecompressor()
+            self.header_encoder = headers.RequestHeaderCompressor()
+        else:
+            raise ValueError(mode)
         self.header_buffers = {}
-        self.headers = {}
 
     def handle_one(self):
         import frame
@@ -22,7 +29,7 @@ class FrameHandler(object):
         elif data.type_id == frame.FRAME_DATA:
             self.handle_data(data)
         elif data.type_id == frame.FRAME_HEADERS:
-            self.handle_headers(data)
+            headers = self.handle_headers(data)
         else:
             self.dispatcher.handle_unknown_frame(frame)
 
@@ -63,10 +70,11 @@ class FrameHandler(object):
         if end_headers:
             # process_buffered_headers
             data = self.header_buffers[frame.stream_id]
-            self.headers[frame.stream_id] = self.read_header_block(data)
+            headers = self.read_header_block(data)
+            self.dispatcher.set_headers(frame.stream_id, headers)
 
     def read_header_block(self, data):
-        return self.header_decodeer.read(data)
+        return self.header_decoder.decode(data)
 
 
     def handle_unknown_frame(self, frame):
