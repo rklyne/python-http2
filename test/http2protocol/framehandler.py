@@ -9,6 +9,8 @@ class FrameDispatcher(object):
         self.headers = {}
         self.priorities = {}
         self.errors = {}
+        self.pings = {}
+        self.pongs = {}
 
     def new_settings(self, settings):
         for k, v in settings.items():
@@ -40,6 +42,12 @@ class FrameDispatcher(object):
 
     def set_priority(self, stream, priority):
         self.priorities[stream] = priority
+
+    def ping(self, stream_id, data):
+        self.pings[stream_id] = data
+
+    def pong(self, stream_id, data):
+        self.pongs[stream_id] = data
 
 class TestSettingsFrame(unittest.TestCase):
     def get_frame(self):
@@ -156,6 +164,40 @@ class TestRstStream(TestFrame):
         stream_id = 9
         self.failUnless(self.dispatcher.was_closed(stream_id))
         self.assertEquals(self.dispatcher.errors.get(stream_id), 1)
+
+class TestPong(TestFrame):
+    def get_single_frame(self):
+        return """
+        00 08 06 01 00 00 00 03
+        00 00 00 00
+        00 00 00 07
+        """.replace(" ", "").replace("\n", "").decode("hex")
+    
+    def test_pong(self):
+        stream_id = 3
+        self.assertEquals(
+            self.dispatcher.pings.get(stream_id),
+            None,
+        )
+        self.assertEquals(
+            self.dispatcher.pongs.get(stream_id),
+            self.get_single_frame()[-8:],
+        )
+    
+class TestPing(TestFrame):
+    def get_single_frame(self):
+        return """
+        00 08 06 00 00 00 00 03
+        00 00 00 00
+        00 00 00 07
+        """.replace(" ", "").replace("\n", "").decode("hex")
+    
+    def test_ping(self):
+        stream_id = 3
+        self.assertEquals(
+            self.dispatcher.pings.get(stream_id),
+            self.get_single_frame()[-8:],
+        )
 
 
 class TestHeadersFrame(unittest.TestCase):

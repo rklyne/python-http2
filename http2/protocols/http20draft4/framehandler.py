@@ -34,6 +34,8 @@ class FrameHandler(object):
             self.handle_priority(data)
         elif data.type_id == frame.FRAME_RST_STREAM:
             self.handle_stream_reset(data)
+        elif data.type_id == frame.FRAME_PING:
+            self.handle_ping(data)
         else:
             self.dispatcher.handle_unknown_frame(data)
 
@@ -96,7 +98,11 @@ class FrameHandler(object):
         raise NotImplementedError
 
     def handle_ping(self, frame):
-        raise NotImplementedError
+        assert len(frame.payload) == 8
+        if frame.flags & 1:
+            self.dispatcher.pong(frame.stream_id, frame.payload)
+        else:
+            self.dispatcher.ping(frame.stream_id, frame.payload)
 
     def handle_goaway(self, frame):
         raise NotImplementedError
