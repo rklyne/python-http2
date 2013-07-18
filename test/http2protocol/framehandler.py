@@ -6,8 +6,8 @@ class FrameDispatcher(object):
         self.settings = {}
         self.data = {}
         self.closed = {}
-        import http2.protocols.http20draft4
         self.headers = {}
+        self.priorities = {}
 
     def new_settings(self, settings):
         for k, v in settings.items():
@@ -30,6 +30,12 @@ class FrameDispatcher(object):
 
     def set_headers(self, stream, headers):
         self.headers[stream] = headers
+
+    def get_priority(self, stream):
+        return self.priorities[stream]
+
+    def set_priority(self, stream, priority):
+        self.priorities[stream] = priority
 
 class TestSettingsFrame(unittest.TestCase):
     def get_frame(self):
@@ -97,6 +103,30 @@ class TestDataFrame(unittest.TestCase):
         self.assertEqual(data, "00070080000a0001".decode("hex"))
         self.failUnless(dispatcher.was_closed(stream_id),
             "did not close stream")
+
+class TestPriorityFrame(unittest.TestCase):
+    def get_single_frame(self):
+        return """
+        00 04 02 00 00 00 00 09
+        00 00  00 10
+        """.replace(" ", "").replace("\n", "").decode("hex")
+    
+    def get_stream(self, data):
+        import http2
+        return http2.PushbackStream(fakes.Stream(data))
+
+    def test_priority_frame(self):
+        import http2.protocols.http20draft4 as http20
+        dispatcher = FrameDispatcher()
+        frame = self.get_single_frame()
+        stream = self.get_stream(frame)
+        handler = http20.FrameHandler(stream, dispatcher)
+        handler.handle_one()
+        stream_id = 9
+        self.assertEqual(
+            dispatcher.get_priority(stream_id),
+            16,
+        )
 
 
 class TestHeadersFrame(unittest.TestCase):

@@ -45,6 +45,8 @@ class HeaderTokeniser(object):
         assert 0 <= prefix < 8, prefix
         mask = (2 ** prefix) - 1
         if first_byte is None:
+            if prefix != 0:
+                raise RuntimeError("Programming error")
             first_byte = self.read_byte_as_int()
         value = first_byte & mask
         if value < mask:

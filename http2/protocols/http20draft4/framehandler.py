@@ -29,7 +29,9 @@ class FrameHandler(object):
         elif data.type_id == frame.FRAME_DATA:
             self.handle_data(data)
         elif data.type_id == frame.FRAME_HEADERS:
-            headers = self.handle_headers(data)
+            self.handle_headers(data)
+        elif data.type_id == frame.FRAME_PRIORITY:
+            self.handle_priority(data)
         else:
             self.dispatcher.handle_unknown_frame(frame)
 
@@ -64,7 +66,7 @@ class FrameHandler(object):
         if priority:
             priority_val, data = data[:4], data[4:]
             priority_val = struct.unpack("!i", priority_val)
-            self.dispatcher.set_stream_priority(frame.stream_id, priority_val)
+            self.dispatcher.set_priority(frame.stream_id, priority_val)
         self.header_buffers.setdefault(frame.stream_id, '')
         self.header_buffers[frame.stream_id] += data
         if end_headers:
@@ -75,6 +77,26 @@ class FrameHandler(object):
 
     def read_header_block(self, data):
         return self.header_decoder.decode(data)
+
+    def handle_priority(self, frame):
+        import struct
+        priority = struct.unpack("!i", frame.payload)[0]
+        self.dispatcher.set_priority(frame.stream_id, priority)
+
+    def handle_stream_reset(self, frame):
+        raise NotImplementedError
+
+    def handle_push_promise(self, frame):
+        raise NotImplementedError
+
+    def handle_ping(self, frame):
+        raise NotImplementedError
+
+    def handle_goaway(self, frame):
+        raise NotImplementedError
+
+    def handle_window_update(self, frame):
+        raise NotImplementedError
 
 
     def handle_unknown_frame(self, frame):
