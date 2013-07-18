@@ -8,6 +8,7 @@ class FrameDispatcher(object):
         self.closed = {}
         self.headers = {}
         self.priorities = {}
+        self.errors = {}
 
     def new_settings(self, settings):
         for k, v in settings.items():
@@ -17,10 +18,13 @@ class FrameDispatcher(object):
             assert v % int('ffff', 16) == v, v
         self.settings.update(settings)
 
-    def write_data(self, stream_id, data, close=False):
+    def write_data(self, stream_id, data):
         self.data.setdefault(stream_id, '')
         self.data[stream_id] += data
+
+    def close(self, stream_id, error_code=0):
         self.closed[stream_id] = True
+        self.errors[stream_id] = error_code
 
     def was_closed(self, stream_id):
         return self.closed.get(stream_id)
@@ -127,6 +131,31 @@ class TestPriorityFrame(unittest.TestCase):
             dispatcher.get_priority(stream_id),
             16,
         )
+
+class TestFrame(unittest.TestCase):
+    def get_stream(self, data):
+        import http2
+        return http2.PushbackStream(fakes.Stream(data))
+
+    def setUp(self):
+        import http2.protocols.http20draft4 as http20
+        self.dispatcher = FrameDispatcher()
+        self.frame = self.get_single_frame()
+        self.stream = self.get_stream(self.frame)
+        self.handler = http20.FrameHandler(self.stream, self.dispatcher)
+        self.handler.handle_one()
+
+class TestRstStream(TestFrame):
+    def get_single_frame(self):
+        return """
+        00 04 03 00 00 00 00 09
+        00 00  00 01
+        """.replace(" ", "").replace("\n", "").decode("hex")
+    
+    def test_stream_is_closed(self):
+        stream_id = 9
+        self.failUnless(self.dispatcher.was_closed(stream_id))
+        self.assertEquals(self.dispatcher.errors.get(stream_id), 1)
 
 
 class TestHeadersFrame(unittest.TestCase):

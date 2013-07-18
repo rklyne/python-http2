@@ -32,15 +32,19 @@ class FrameHandler(object):
             self.handle_headers(data)
         elif data.type_id == frame.FRAME_PRIORITY:
             self.handle_priority(data)
+        elif data.type_id == frame.FRAME_RST_STREAM:
+            self.handle_stream_reset(data)
         else:
-            self.dispatcher.handle_unknown_frame(frame)
+            self.dispatcher.handle_unknown_frame(data)
 
     def handle_data(self, frame):
         import struct
         # no flags defined
         data = frame.payload
         closed = bool(frame.flags & 1)
-        self.dispatcher.write_data(frame.stream_id, data, closed)
+        self.dispatcher.write_data(frame.stream_id, data)
+        if closed:
+            self.dispatcher.close(frame.stream_id, 0)
 
     def handle_settings(self, frame):
         import struct
@@ -84,7 +88,9 @@ class FrameHandler(object):
         self.dispatcher.set_priority(frame.stream_id, priority)
 
     def handle_stream_reset(self, frame):
-        raise NotImplementedError
+        import struct
+        error_code = struct.unpack("!I", frame.payload)[0]
+        self.dispatcher.close(frame.stream_id, error_code)
 
     def handle_push_promise(self, frame):
         raise NotImplementedError
