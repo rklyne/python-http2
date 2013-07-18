@@ -41,9 +41,11 @@ class HeaderTokeniser(object):
     def read_byte_as_int(self):
         return ord(self.read_bytes(1))
 
-    def read_int(self, prefix, first_byte):
+    def read_int(self, prefix=0, first_byte=None):
         assert 0 <= prefix < 8, prefix
         mask = (2 ** prefix) - 1
+        if first_byte is None:
+            first_byte = self.read_byte_as_int()
         value = first_byte & mask
         if value < mask:
             return value
@@ -128,7 +130,7 @@ class HeaderDecompressor(object):
                 else:
                     header_num -= 1
                     name, _ = self.table.get_by_index(header_num)
-                new_num = tokens.read_int(0, tokens.read_byte_as_int())
+                new_num = tokens.read_int()
                 #raise RuntimeError(tokens, first_byte, name, header_num, tokens.cursor, tokens.data)
                 value = tokens.read_string()
                 try:
