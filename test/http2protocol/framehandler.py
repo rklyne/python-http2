@@ -11,6 +11,7 @@ class FrameDispatcher(object):
         self.errors = {}
         self.pings = {}
         self.pongs = {}
+        self.promises = {}
 
     def new_settings(self, settings):
         for k, v in settings.items():
@@ -48,6 +49,25 @@ class FrameDispatcher(object):
 
     def pong(self, stream_id, data):
         self.pongs[stream_id] = data
+
+    def promised(self, stream):
+        self.promises[stream] = True
+
+class TestFrame(unittest.TestCase):
+    def get_stream(self, data):
+        import http2
+        return http2.PushbackStream(fakes.Stream(data))
+
+    def setUp(self):
+        import http2.protocols.http20draft4 as http20
+        self.dispatcher = FrameDispatcher()
+        self.frame = self.get_single_frame()
+        self.stream = self.get_stream(self.frame)
+        self.handler = http20.FrameHandler(self.stream, self.dispatcher)
+
+
+############
+## Tests...
 
 class TestSettingsFrame(unittest.TestCase):
     def get_frame(self):
@@ -140,18 +160,6 @@ class TestPriorityFrame(unittest.TestCase):
             16,
         )
 
-class TestFrame(unittest.TestCase):
-    def get_stream(self, data):
-        import http2
-        return http2.PushbackStream(fakes.Stream(data))
-
-    def setUp(self):
-        import http2.protocols.http20draft4 as http20
-        self.dispatcher = FrameDispatcher()
-        self.frame = self.get_single_frame()
-        self.stream = self.get_stream(self.frame)
-        self.handler = http20.FrameHandler(self.stream, self.dispatcher)
-        self.handler.handle_one()
 
 class TestRstStream(TestFrame):
     def get_single_frame(self):
@@ -161,6 +169,7 @@ class TestRstStream(TestFrame):
         """.replace(" ", "").replace("\n", "").decode("hex")
     
     def test_stream_is_closed(self):
+        self.handler.handle_one()
         stream_id = 9
         self.failUnless(self.dispatcher.was_closed(stream_id))
         self.assertEquals(self.dispatcher.errors.get(stream_id), 1)
@@ -174,6 +183,7 @@ class TestPong(TestFrame):
         """.replace(" ", "").replace("\n", "").decode("hex")
     
     def test_pong(self):
+        self.handler.handle_one()
         stream_id = 3
         self.assertEquals(
             self.dispatcher.pings.get(stream_id),
@@ -193,6 +203,7 @@ class TestPing(TestFrame):
         """.replace(" ", "").replace("\n", "").decode("hex")
     
     def test_ping(self):
+        self.handler.handle_one()
         stream_id = 3
         self.assertEquals(
             self.dispatcher.pings.get(stream_id),
@@ -229,6 +240,31 @@ class TestHeadersFrame(unittest.TestCase):
         self.assertEqual(headers.getall(':status'), ['200'])
         self.assertEqual(headers.getall('content-length'), [u'aa'])
         self.failIf(dispatcher.was_closed(stream_id),
+            "closed stream")
+
+class TestPushPromiseFrame(TestFrame):
+    def get_single_frame(self):
+        return """
+        00 09 05 01 00 00 00 05
+        00 00 00 08
+        44 02 61 61
+        80
+        """.replace(" ", "").replace("\n", "").decode("hex")
+    
+    def test_push_promise_frame(self):
+        self.handler.handle_one()
+        self.stream.sock.assertFinished()
+        self.failUnless(self.dispatcher.headers)
+        this_stream = 5
+        promised_stream = 8
+        self.failUnless(promised_stream in self.dispatcher.headers, "%s not in %s" %(promised_stream, self.dispatcher.headers.keys()))
+        self.failUnless(promised_stream in self.dispatcher.promises, "%s not in %s" %(promised_stream, self.dispatcher.promises.keys()))
+        headers = self.dispatcher.headers[promised_stream]
+        self.assertEqual(len(headers), 2, headers.headers)
+        self.assertEqual(headers.getall(':status'), ['200'])
+        self.assertEqual(headers.getall('content-length'), [u'aa'])
+        self.failIf(self.dispatcher.was_closed(this_stream))
+        self.failIf(self.dispatcher.was_closed(promised_stream),
             "closed stream")
 
 

@@ -20,6 +20,7 @@ class FrameHandler(object):
         else:
             raise ValueError(mode)
         self.header_buffers = {}
+        self.push_promise_buffers = {}
 
     def handle_one(self):
         import frame
@@ -34,6 +35,8 @@ class FrameHandler(object):
             self.handle_priority(data)
         elif data.type_id == frame.FRAME_RST_STREAM:
             self.handle_stream_reset(data)
+        elif data.type_id == frame.FRAME_PUSH_PROMISE:
+            self.handle_push_promise(data)
         elif data.type_id == frame.FRAME_PING:
             self.handle_ping(data)
         else:
@@ -95,7 +98,18 @@ class FrameHandler(object):
         self.dispatcher.close(frame.stream_id, error_code)
 
     def handle_push_promise(self, frame):
-        raise NotImplementedError
+        import struct
+        end_headers = bool(frame.flags & 1)
+        promise = struct.unpack("!i", frame.payload[:4])[0]
+        data = frame.payload[4:]
+        self.push_promise_buffers.setdefault(frame.stream_id, '')
+        self.push_promise_buffers[frame.stream_id] += data
+        if end_headers:
+            # process_buffered_headers
+            data = self.push_promise_buffers[frame.stream_id]
+            headers = self.read_header_block(data)
+            self.dispatcher.set_headers(promise, headers)
+            self.dispatcher.promised(promise)
 
     def handle_ping(self, frame):
         assert len(frame.payload) == 8
