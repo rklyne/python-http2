@@ -13,6 +13,7 @@ class FrameDispatcher(object):
         self.pongs = {}
         self.promises = {}
         self.goaway_data = []
+        self.window = {}
 
     def new_settings(self, settings):
         for k, v in settings.items():
@@ -60,6 +61,10 @@ class FrameDispatcher(object):
 
     def promised(self, stream):
         self.promises[stream] = True
+
+    def window_update(self, stream, increment):
+        self.window.setdefault(stream, 0)
+        self.window[stream] += increment
 
 class TestFrame(unittest.TestCase):
     def get_stream(self, data):
@@ -235,6 +240,21 @@ class TestGoaway(TestFrame):
             [
                 (2, 7, 'aaaa'),
             ],
+        )
+
+class TestWindowUpdate(TestFrame):
+    def get_single_frame(self):
+        return """
+        00 04 09 00 00 00 00 03
+        00 00 00 20
+        """.replace(" ", "").replace("\n", "").decode("hex")
+    
+    def test_window_update(self):
+        self.handler.handle_one()
+        stream_id = 3
+        self.assertEquals(
+            self.dispatcher.window[stream_id],
+            32,
         )
 
 
