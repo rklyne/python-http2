@@ -12,6 +12,7 @@ class FrameDispatcher(object):
         self.pings = {}
         self.pongs = {}
         self.promises = {}
+        self.goaway_data = []
 
     def new_settings(self, settings):
         for k, v in settings.items():
@@ -31,6 +32,13 @@ class FrameDispatcher(object):
 
     def was_closed(self, stream_id):
         return self.closed.get(stream_id)
+
+    def go_away(self, last_stream, error_code, data):
+        self.goaway_data.append((
+            last_stream,
+            error_code,
+            data,
+        ))
 
     def handle_unknown_frame(self, frame):
         raise RuntimeError(frame)
@@ -208,6 +216,25 @@ class TestPing(TestFrame):
         self.assertEquals(
             self.dispatcher.pings.get(stream_id),
             self.get_single_frame()[-8:],
+        )
+
+class TestGoaway(TestFrame):
+    def get_single_frame(self):
+        return """
+        00 0c 07 00 00 00 00 03
+        00 00 00 02
+        00 00 00 07
+        61 61 61 61
+        """.replace(" ", "").replace("\n", "").decode("hex")
+    
+    def test_goaway(self):
+        self.handler.handle_one()
+        stream_id = 3
+        self.assertEquals(
+            self.dispatcher.goaway_data,
+            [
+                (2, 7, 'aaaa'),
+            ],
         )
 
 

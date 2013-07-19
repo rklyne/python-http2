@@ -39,6 +39,8 @@ class FrameHandler(object):
             self.handle_push_promise(data)
         elif data.type_id == frame.FRAME_PING:
             self.handle_ping(data)
+        elif data.type_id == frame.FRAME_GOAWAY:
+            self.handle_goaway(data)
         else:
             self.dispatcher.handle_unknown_frame(data)
 
@@ -119,14 +121,17 @@ class FrameHandler(object):
             self.dispatcher.ping(frame.stream_id, frame.payload)
 
     def handle_goaway(self, frame):
-        raise NotImplementedError
+        import struct
+        data = frame.payload
+        last_stream, error_code = struct.unpack("!iI", data[:8])
+        debug_data = data[8:]
+        self.dispatcher.go_away(last_stream, error_code, debug_data)
 
     def handle_window_update(self, frame):
         raise NotImplementedError
 
-
     def handle_unknown_frame(self, frame):
-        raise RuntimeError("unknown frame type", frame)
+        self.dispatcher.handle_unknown_frame(frame)
 
     def read_frame(self):
         import frame as Frame
