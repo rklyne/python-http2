@@ -26,7 +26,7 @@ class PushbackStream(object):
         import time
         end_time = time.time() + timeout
         data = self._read(count)
-        while not data:
+        while not data and not self.is_closed():
             data = self._read(count)
             if data:
                 break
@@ -64,4 +64,9 @@ class PushbackStream(object):
 
     def is_closed(self):
         return self.socket_closed
+
+
+    def close(self):
+        self.sock.close()
+Stream = PushbackStream
 

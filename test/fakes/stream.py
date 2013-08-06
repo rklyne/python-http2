@@ -7,7 +7,8 @@ class FakeStream(object):
     """Fakes a socket.
     """
     def __init__(self, data):
-        self.data = data
+        self.data = ""
+        self.add_data(data)
         import cStringIO as StringIO
         self.sb = StringIO.StringIO()
         self.returned_empty = False
@@ -18,6 +19,9 @@ class FakeStream(object):
         if not result:
             self.returned_empty = True
         return result
+
+    def add_data(self, data):
+        self.data += data
 
     def setblocking(self, value):
         assert value == 0, "We're faking non-blocking."

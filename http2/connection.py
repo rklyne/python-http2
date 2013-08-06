@@ -1,25 +1,32 @@
 
 class Connection(object):
+    """Wraps a socket and presents messages.
+    """
     def __init__(self,
-        socket,
+        stream,
         protocol,
         stream_class=None,
         timeout=5,
     ):
-        self.socket = socket
-        self.protocol = protocol
         self.timeout = timeout
         self.socket.settimeout(timeout)
         self.thread = None
-        self.stream = None
-        if stream_class is None:
-            import http2
-            stream_class = http2.PushbackStream
-        self.stream_class = stream_class
+        self.stream = stream
+        self.protocol = None
+        self.set_protocol(protocol)
 
     def process_connection_upgrade(self, request):
         upgrade_header = request.get_header('upgrade')
         raise NotImplementedError(upgrade_header)
+
+    def set_protocol(self, protocol):
+        if self.protocol:
+            self.protocol.wrap_up_comms()
+        self.protocol_setting = protocol
+        self.protocol = protocol.read_stream(self.get_stream())
+
+    def close(self):
+        self.stream.close()
 
     def get_stream(self):
         if self.stream is None:
@@ -27,34 +34,36 @@ class Connection(object):
         return self.stream
 
     def send_request_message(self, message):
-        self.protocol.send_request_message(message, self.get_stream())
+        self.protocol.send_request_message(message)
         self.stream.done_sending()
-        return self.protocol.read_response_message(self.get_stream())
+        return self.protocol.read_response_message()
 
     def send_request(self, request):
         raise RuntimeError("deprecated")
         stream = self.get_stream()
-        self.protocol.write_request_to_stream(request, stream)
+        self.protocol.write_request(request, stream)
         
     def make_headers(self, *t, **k):
+        import http2
+        return http2.Headers(*t, **k)
         return self.protocol.make_headers(*t, **k)
 
     def make_request_message(self, *t, **k):
-        return self.protocol.make_request_message(*t, **k)
+        import http2.message
+        return http2.message.RequestMessage(*t, **k)
 
     def make_response_message(self, *t, **k):
-        return self.protocol.make_response_message(*t, **k)
+        import http2.message
+        return http2.message.ResponseMessage(*t, **k)
 
 class ServerConnection(Connection):
     def __init__(self,
         socket,
-        protocol,
-        dispatcher,
+        message_reader,
         stream_class=None,
         timeout=5,
     ):
-        super(ServerConnection, self).__init__(socket, protocol, stream_class=stream_class, timeout=timeout)
-        self.dispatcher = dispatcher
+        super(ServerConnection, self).__init__(socket, message_reader, stream_class=stream_class, timeout=timeout)
     def start_thread(self):
         if self.thread:
             raise RuntimeError("Already running")
@@ -64,18 +73,25 @@ class ServerConnection(Connection):
         self.thread.setDaemon(True)
         self.thread.start()
 
+    def start_handling(self, dispatcher):
+        if self.threaded:
+            self.start_thread()
+    def _handle(self, dispatcher):
+        stream = self.get_stream()
+        while not stream.is_closed():
+            message = self.protocol.read_request()
+            response = dispatcher.handle(message)
+            self.protocol.send_response(response)
+        
     def run(self):
         try:
-            self.protocol.serve_connection(self, self.timeout)
+            self.serve_connection(self.timeout)
         except:
             stream_closed = self.get_stream().is_closed()
             self.socket.close()
             if not stream_closed:
                 raise
 
-
-    def dispatch_request(self, request):
-        return self.dispatcher.handle(request, self)
 
 class ClientConnection(Connection):
     def send_request(self, method, url, headers, body):

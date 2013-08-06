@@ -4,13 +4,11 @@ class RequestMessage(object):
     def __init__(self,
         method,
         url,
-        protocol_name,
         headers,
         body,
     ):
         self.method = method
         self.url = url
-        self.protocol_name = protocol_name
         self.headers = headers
         self.body = body
 
@@ -43,6 +41,8 @@ class Headers(object):
             l.append(v)
 
     def get(self, name, default=None):
+        if not isinstance(name, str):
+            raise TypeError(name)
         l = self.get_all(name)
         if l:
             assert len(l) == 1, l
@@ -59,4 +59,7 @@ class Headers(object):
     def all_headers(self):
         return self.original_list
 
+    def __iter__(self):
+        for x in self.original_list:
+            yield x
 

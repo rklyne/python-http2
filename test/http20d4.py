@@ -4,7 +4,7 @@ import unittest
 
 
 TEST_TIMEOUT = 0.5 # seconds
-class EndToEndHttp11Tests(unittest.TestCase):
+class EndToEndHttp20Tests(unittest.TestCase):
     RESPONSE = """Status: 200 OK
 Content-Type: text/plain
 Content-Length: 9
@@ -20,21 +20,23 @@ Hi there!"""
             raise RuntimeError()
         import threading
         self.thread = threading.Thread()
-        def f():
-            self.server.serve(port=8090, timeout=TEST_TIMEOUT)
+        self.thread.setName("Tst-http20d4-"+self._testMethodName)
+        self.port = 8091
+        def f(self=self):
+            self.server.serve(port=self.port, timeout=TEST_TIMEOUT)
         self.thread.run = f
         self.thread.start()
         import time
         time.sleep(0.01)
-        return "http://localhost:8090/"
+        return "http://localhost:8091/"
 
     def setUp(self):
-        from http2 import Http11Server, Http11Client, Wsgi
+        from http2 import Http20d4Server, Http20d4Client, Wsgi
         wsgi = self.get_simple_wsgi()
-        server = Http11Server(Wsgi(wsgi))
+        server = Http20d4Server(Wsgi(wsgi))
         self.server = server
         
-        client = Http11Client(timeout=TEST_TIMEOUT)
+        client = Http20d4Client(timeout=TEST_TIMEOUT)
         self.client = client
 
         self.thread = None
@@ -44,9 +46,11 @@ Hi there!"""
         if self.thread:
             self.thread.join()
 
-    def test_http11_request(self):
+    def test_http20_request(self):
+        self.fail("not implemented")
         server_url = self.start_serving_thread()
         resp = self.client.get(server_url)
         self.failUnless(resp)
+
 
 
