@@ -10,21 +10,21 @@ class Server(object):
         self.running = False
         self.thread = None
     
-    def start_serving(self, threaded=None, notify_serving=None):
+    def start_serving(self, notify_serving=None):
         self.running = True
-        if threaded:
-            self.start_thread()
         import socket
         sock = socket.socket()
         errored = False
         try:
             try:
-                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                sock.settimeout(self.ACCEPT_TIMEOUT)
-                sock.bind((self.host, self.port))
-                sock.listen(1)
-                if notify_serving:
-                    notify_serving()
+                try:
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    sock.settimeout(self.ACCEPT_TIMEOUT)
+                    sock.bind((self.host, self.port))
+                    sock.listen(1)
+                finally:
+                    if notify_serving:
+                        notify_serving()
             except:
                 errored = True
                 raise
@@ -81,7 +81,10 @@ class ServerThread(threading.Thread):
         self.ready_lock.acquire()
         def notify():
             self.ready_lock.release()
-        self.server.start_serving(threaded=False, notify_serving=notify)
+        try:
+            self.server.start_serving(notify_serving=notify)
+        except:
+            self.ready_lock.release()
     def start(self):
         self.ready_lock = threading.Lock()
         super(ServerThread, self).start()
