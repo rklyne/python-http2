@@ -116,7 +116,6 @@ class Protocol(object):
             response = dispatcher.dispatch_request(request)
             self.stream_format.write_response_to_stream(response, stream, state)
             #reader.send_response(response)
-            stream.close()
 
     def open_client(self, stream):
         raise NotImplementedError("TODO: return an object with a make_request method")
@@ -135,12 +134,13 @@ import threading
 class ProtocolStreamServer(threading.Thread):
     def __init__(self, stream, protocol, dispatcher):
         super(ProtocolStreamServer, self).__init__()
+        assert hasattr(dispatcher, 'handle'), dispatcher
         self.stream = stream
         self.protocol = protocol
         self.dispatcher = dispatcher
 
     def run(self):
-        self.protocol.request_maker(self.stream, self.dispatcher)
+        self.protocol.request_handler(self.stream, self.dispatcher)
         return
         stream = self.stream
         state = self.protocol.initialise_state()
@@ -153,14 +153,22 @@ class ProtocolStreamServer(threading.Thread):
             self.protocol.stream_format.write_response_to_stream(response, stream, state)
 
 class HttpClient(object):
-    def get(self, url):
-        return
-    def post(self, url, data):
-        return
-    def make_request(self, url, method, postdata):
+    def __init__(self, stream, request_maker):
+        self.stream = stream
+        self.request_maker = request_maker
+        import http2.message
+        self.Request = http2.message.RequestMessage
+
+    def get(self, url, headers):
+        return self.make_request("get", url, headers, "")
+
+    def post(self, url, headers, data):
+        return self.make_request("post", url, headers, data)
+
+    def make_request(self, method, url, headers, postdata):
         import http2.message
         request = http2.message.RequestMessage(url, method, headers, postdata)
-        self.request_maker(request)
+        self.request_maker(self.stream, request)
 
 class Protocol2(object):
     """Changable part of a connection. i

@@ -70,12 +70,12 @@ class Client(object):
         import urlparse
         url = urlparse.urlparse(url_string)
         stream = self.open_stream(url.hostname, url.port)
-        reader = self.protocol.read_stream(stream)
-        return ClientConnection(reader, self.protocol)
+        return self.protocol.open_client(stream)
+        #reader = self.protocol.read_stream(stream)
+        #return ClientConnection(reader, self.protocol)
 
     # Convenience
     def get(self, url, headers=None):
-        
         conn = self.connect_url(url)
         if headers is None:
             headers = self.default_headers()

@@ -108,7 +108,8 @@ class StreamManager(object):
             self.server.remove_stream(self)
 
 
-    def dispatch_request(self, request):
+    def handle(self, request):
+        return self.server.dispatch_request(request)
         raise RuntimeError(request)
         return self.server.dispatch_request(request)
 

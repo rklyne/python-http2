@@ -1,11 +1,14 @@
 
+class Timeout(Exception): pass
+class Error(Exception): pass
+class Closed(Error): pass
 
 class PushbackStream(object):
     USE_FILE = False
     def __init__(self, socket):
         self.sock = socket
         socket.setblocking(0)
-        socket.settimeout(1)
+        socket.settimeout(0.1)
         if self.USE_FILE:
             self.file = socket.makefile('wb')
         self.socket_closed = False
@@ -31,24 +34,27 @@ class PushbackStream(object):
             if data:
                 break
             if time.time() > end_time:
-                return ""
+                raise Timeout
             time.sleep(loop_delay)
         return data
 
     def _read(self, count): 
         import socket
+        bytes = ''
         try:
-            while True:
-                try:
-                    bytes = self.sock.recv(count)
-                    break
-                except socket.timeout, t:
-                    pass
+            try:
+                bytes = self.sock.recv(count)
+            except socket.timeout, t:
+                pass
         except IOError, ioe:
             #raise RuntimeError(dir(ioe))
-            if ioe.errno == 11:
+            if ioe.errno == socket.EBADF:
+                # Closed
+                self.socket_closed = True
+            elif ioe.errno == 11:
                 return ""
-            raise
+            else:
+                raise
         if not bytes:
             self.socket_closed = True
         return bytes
@@ -64,7 +70,6 @@ class PushbackStream(object):
 
     def is_closed(self):
         return self.socket_closed
-
 
     def close(self):
         self.sock.close()

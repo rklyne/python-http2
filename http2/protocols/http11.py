@@ -16,6 +16,8 @@ class Http11Stream(object):
         self.make_response_message = http2.message.ResponseMessage
 
     def write_request(self, request):
+        if not hasattr(request, 'method'):
+            raise ValueError(request)
         import cStringIO as StringIO
         s = StringIO.StringIO()
         s.write(request.method)
@@ -190,6 +192,7 @@ class Http11MessageHandler(object):
         raise NotImplementedError
 
 def http11_request_handler(stream, dispatcher):
+    assert hasattr(dispatcher, 'handle'), dispatcher
     http_stream = Http11Stream(stream)
     request = http_stream.read_request()
     response = dispatcher.handle(request)
