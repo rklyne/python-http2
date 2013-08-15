@@ -19,14 +19,10 @@ class ClientConnection(object):
 class Client(object):
     def __init__(self,
         protocol,
-        connection_class=None,
         headers_class=None,
         timeout=5,#s
     ):
         import http2
-        if connection_class is None:
-            connection_class = http2.ClientConnection
-        self.connection_class = connection_class
         if headers_class is None:
             headers_class = http2.Headers
         self.headers_class = headers_class
