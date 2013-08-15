@@ -9,29 +9,31 @@ class Server(object):
         self.new_socket_timeout = new_socket_timeout
         self.running = False
         self.thread = None
+        self.prepare()
+
+    def prepare(self):
+        import socket
+        sock = socket.socket()
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.settimeout(self.ACCEPT_TIMEOUT)
+            sock.bind((self.host, self.port))
+            sock.listen(1)
+        except:
+            sock.close()
+            raise
+        self.sock = sock
+
     
     def start_serving(self, notify_serving=None):
         self.running = True
         import socket
-        sock = socket.socket()
         errored = False
         try:
             try:
-                try:
-                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                    sock.settimeout(self.ACCEPT_TIMEOUT)
-                    sock.bind((self.host, self.port))
-                    sock.listen(1)
-                finally:
-                    if notify_serving:
-                        notify_serving()
-            except:
-                errored = True
-                raise
-            try:
                 while self.running:
                     try:
-                        child_socket, addr = sock.accept()
+                        child_socket, addr = self.sock.accept()
                     except socket.timeout:
                         pass
                     else:
@@ -40,13 +42,14 @@ class Server(object):
             except socket.error:
                 pass
         finally:
+            self.running = False
             if not errored:
                 try:
                     while True:
-                        sock.accept()
+                        self.sock.accept()
                 except (socket.timeout, socket.error):
                     pass
-            sock.close()
+            self.sock.close()
 
     def start_thread(self):
         self.thread = ServerThread(self)
@@ -69,7 +72,8 @@ class Server(object):
 
         finally:
             # A threaded dispatcher would have to close the socket itself
-            sock.close()
+            #sock.close()
+            pass
 
 
 import threading
@@ -78,18 +82,9 @@ class ServerThread(threading.Thread):
         super(ServerThread, self).__init__()
         self.server = server
     def run(self):
-        self.ready_lock.acquire()
-        def notify():
-            self.ready_lock.release()
-        try:
-            self.server.start_serving(notify_serving=notify)
-        except:
-            self.ready_lock.release()
+        self.server.start_serving()
     def start(self):
-        self.ready_lock = threading.Lock()
         super(ServerThread, self).start()
-        self.ready_lock.acquire()
-        self.ready_lock.release()
         
 ###
 # Client code

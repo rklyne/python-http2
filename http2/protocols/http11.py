@@ -36,10 +36,13 @@ class Http11Stream(object):
         timeout=5,
     ):
         
-        method, url, proto = self.read_request_line()
+        method, url, proto = self.read_request_line(timeout=timeout)
         assert proto == NAME, proto
         headers = self.read_headers(timeout=timeout)
-        body = self.read_body(headers)
+        body = ''
+        method = method.upper()
+        if method not in ('GET', 'HEAD', 'DELETE'):
+            body = self.read_body(headers)
         return self.make_request_message(
             method,
             url,
@@ -55,7 +58,7 @@ class Http11Stream(object):
         import time
         end_time = time.time() + timeout
         while pos < 0:
-            buff = self.stream.read(chunk)
+            buff = self.stream.read(chunk, timeout=timeout)
             if not buff:
                 time.sleep(read_wait)
                 if time .time() > end_time:
@@ -72,7 +75,7 @@ class Http11Stream(object):
         method, line = line.split(' ', 1)
         assert ' ' in line, (full_line, first_buff)
         url, protocol_name = line.rsplit(' ', 1)
-        return method, url, protocol_name
+        return method.upper(), url, protocol_name
   
     def read_headers(self, 
         timeout=5,
@@ -104,27 +107,32 @@ class Http11Stream(object):
         raise ValueError("Headers not found in stream")
         return self.headers_class(headers_dict)
 
-    def read_body(self, headers, timeout=5):
+    def read_body(self,
+        headers,
+        read_to_eof=False,
+        timeout=5,
+    ):
+        from http2.errors import ProtocolError
         len_header = 'content-length'
         if len_header in headers:
             clen = int(headers.get(len_header))
-        else:
+        elif read_to_eof:
             clen = None
-        body = ''
+        else:
+            raise RuntimeError("missing content-length", headers.__dict__, self.stream.__dict__)
+            raise ProtocolError, "Missing required 'content-length' header"
+        import cStringIO as StringIO
+        body = StringIO.StringIO()
         import time
         end_time = time.time() + timeout
         if clen is None:
             chunk = 32*1024
-            while not self.stream.is_closed():
-                body += self.stream.read(chunk)
-                if time.time() > end_time:
-                    raise RuntimeError("read_body timeout", len(body), clen, body)
+            while self.stream.has_input:
+                body.write(self.stream.read(chunk, timeout=timeout))
         else:
-            while len(body) < clen:
-                body += self.stream.read(clen)
-                if time.time() > end_time:
-                    raise RuntimeError("read_body timeout", len(body), clen, body)
-        return body
+            while body.tell() < clen:
+                body.write(self.stream.read(clen, timeout=timeout))
+        return body.getvalue()
 
     def write_headers(self, headers, s):
         for k, v in headers.all_headers():
@@ -155,46 +163,42 @@ class Http11Stream(object):
         self.stream.flush()
     
     def read_response(self,
+        allowed_body=True,
         timeout=5,#s
     ):
-        buff = self.stream.read(1024)
+        buff = self.stream.read(1024, timeout=timeout)
+        if not buff:
+            import time
+            time.sleep(0.1)
+            raise RuntimeError(timeout, self.stream.read(100), self.stream.__dict__)
         nl_pos = buff.find(self.NL)
-        assert nl_pos > 0, buff
+        assert nl_pos > 0, `buff`
         status_line, buff = buff[:nl_pos], buff[nl_pos+len(self.NL):]
         status_code, status_message = status_line.split(' ', 1)
         status_code = int(status_code)
 #        raise RuntimeError(status_code, status_message, buff)
         self.stream.pushback(buff)
         headers = self.read_headers(timeout=timeout)
-        body = self.read_body(headers, timeout=timeout)
-        return self.make_response_message(
+        body = ''
+        if allowed_body:
+            body = self.read_body(
+                headers,
+                read_to_eof=True,
+                timeout=timeout,
+            )
+        resp = self.make_response_message(
             status_code, 
             status_message, 
             headers, 
             body,
         )
+        assert resp, status_line
+        return resp
 
-class Http11MessageHandler(object):
-    def handle_request(self, message, connection):
-        # Process control messages
-        pass
-        # Pass request to dispatcher
-        #raise RuntimeError(message.__dict__)
-        method = message.method
-        headers = message.headers
-        body = message.body
-        url = message.url
-        request = http2.request.Request(method, url, headers, body)
-        response = connection.dispatch_request(request)
-        return response
-        
-    def handle_response(self, message, connection):
-        raise NotImplementedError
-
-def http11_request_handler(stream, dispatcher):
+def http11_request_handler(stream, dispatcher, timeout=5):
     assert hasattr(dispatcher, 'handle'), dispatcher
     http_stream = Http11Stream(stream)
-    request = http_stream.read_request()
+    request = http_stream.read_request(timeout=timeout)
     response = dispatcher.handle(request)
     assert response, request
     http_stream.write_response(response)

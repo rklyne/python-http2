@@ -167,8 +167,13 @@ class HttpClient(object):
 
     def make_request(self, method, url, headers, postdata):
         import http2.message
+        assert isinstance(postdata, str), `postdata`
+        assert isinstance(headers, http2.message.Headers), `headers`
+        clen = "content-length"
+        if clen not in headers:
+            headers.add(clen, str(len(postdata)))
         request = http2.message.RequestMessage(url, method, headers, postdata)
-        self.request_maker(self.stream, request)
+        return self.request_maker(self.stream, request)
 
 class Protocol2(object):
     """Changable part of a connection. i

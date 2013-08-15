@@ -33,7 +33,7 @@ class TestSocketServer(unittest.TestCase):
         s = socket.socket()
         self.handler.assertStreamCount(0)
         s.connect((self.HOST, self.PORT))
-        time.sleep(0.01)
+        time.sleep(0.001)
         self.handler.assertStreamCount(1)
         s.close()
         self.handler.assertStreamCount(1)
@@ -84,6 +84,8 @@ class TestSocketStream(unittest.TestCase):
             stream.close()
         self.server = http2.sockets.Server(self.host, self.port, stream_handler)
         self.server.start_thread()
+        import time
+        time.sleep(0.001)
 
     def tearDown(self):
         self.server.stop()

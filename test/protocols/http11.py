@@ -1,10 +1,22 @@
 import unittest
 
 class TestHttp11ServerRequests(unittest.TestCase):
-    def test_serving_requests(self):
+    def test_reading_request(self):
         self.assertStreamRequest(
         "GET / HTTP/1.1\r\n\r\n", 
         "GET", "/", {}, '')
+
+    def test_reading_request_lowercase_method(self):
+        self.assertStreamRequest(
+        "get / HTTP/1.1\r\n\r\n", 
+        "GET", "/", {}, '')
+
+    def test_reading_request_ending(self):
+        self.assertStreamRequest(
+        "GET / HTTP/1.1\r\n\r\nextraextra", 
+        "GET", "/", {}, '',
+        # Check the trailing text to ensure that following requests will work.
+        "extraextra")
 
     def test_headers(self):
         self.assertStreamRequest(
@@ -16,12 +28,24 @@ class TestHttp11ServerRequests(unittest.TestCase):
         "POST / HTTP/1.1\r\nContent-length:5\r\n\r\ndata!", 
         "POST", "/", {'Content-length': ['5']}, 'data!')
 
+    # Error conditions
+    def test_POST_with_no_content_length_raises_error(self):
+        try:
+            self.assertStreamRequest(
+            "POST / HTTP/1.1\r\n\r\n", 
+            "POST", "/", {}, '')
+        except:
+            pass # Success
+        else:
+            self.fail("Did not raise error")
+
     def assertStreamRequest(self,
         stream_data,
         method,
         url,
         headers,
         body,
+        leftover=None,
     ):
         import fakes
         socket = fakes.Stream(stream_data)
@@ -40,6 +64,12 @@ class TestHttp11ServerRequests(unittest.TestCase):
             self.assertEqual(len(actual_values), len(values))
             for v in values:
                 assert v in actual_values, "%s missing value %s" %(header, v)
+
+        if leftover is not None:
+            self.assertEqual(
+                stream.read(len(leftover)+1),
+                leftover,
+            )
 
 class TestHttp11ServerResponses(unittest.TestCase):
     def assertStreamResponse(self,
