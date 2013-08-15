@@ -4,11 +4,15 @@ class Headers(object):
     ):
         assert isinstance(header_list, list), header_list
         header_list = header_list[:]
-        self.original_list = header_list
+        self.original_list = []
         self.header_values = {}
         for k, v in header_list:
-            l = self.header_values.setdefault(k.lower(), [])
-            l.append(v)
+            self.add(k, v)
+
+    def add(self, k, v):
+        l = self.header_values.setdefault(k.lower(), [])
+        l.append(v)
+        self.original_list.append((k, v))
 
     def get(self, name, default=None):
         if not isinstance(name, str):

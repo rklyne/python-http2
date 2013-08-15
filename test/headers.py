@@ -24,3 +24,14 @@ class HeadersTest(unittest.TestCase):
         self.assertEquals(h.get_all('n'), nums)
         self.assertEquals(h.get_all('N'), nums)
 
+    def test_add(self):
+        import http2.headers
+        h = http2.headers.Headers([
+            ('y', 'val'),
+        ])
+        self.failUnless('y' in h)
+        self.failIf('x' in h)
+        h.add('x', 'val2')
+        self.failUnless('x' in h)
+        self.failUnless(('x', 'val2') in list(h))
+
