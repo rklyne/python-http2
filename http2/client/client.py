@@ -43,18 +43,6 @@ class Client(object):
         headers.append(('user-agent', 'Python-http2.Client'))
         return self.headers_class(headers)
 
-    def get_connection(self, url_string):
-        raise RuntimeError("deprecated")
-        import urlparse, socket
-        url = urlparse.urlparse(url_string)
-        sock = socket.socket()
-        try:
-            sock.connect((url.hostname, url.port))
-        except:
-            sock.close()
-        self.conn = self.connection_class(sock, self.protocol, timeout=self.timeout)
-        return self.conn
-
     def open_stream(self, host, port):
         import socket
         sock = socket.socket()
