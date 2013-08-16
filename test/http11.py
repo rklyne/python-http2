@@ -4,7 +4,7 @@ import unittest
 
 
 TEST_TIMEOUT = 0.5 # seconds
-class EndToEndHttp20Tests(unittest.TestCase):
+class EndToEndHttp11Tests(unittest.TestCase):
     RESPONSE = """Status: 200 OK
 Content-Type: text/plain
 Content-Length: 9
