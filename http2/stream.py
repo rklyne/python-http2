@@ -15,6 +15,7 @@ class PushbackStream(object):
         self.socket_closed = False
         self.buffer = ''
         self.has_input = True
+        self.stream_finished = False
     def pushback(self, data):
         self.buffer = data + self.buffer
         self.has_input = True
@@ -25,53 +26,42 @@ class PushbackStream(object):
         self.flush()
 
     def read(self, count, timeout=5, loop_delay=0.001):
+        import socket
         self.ensure_open()
-        if self.buffer:
-            buffer = self.buffer
-            self.buffer = ''
-            return buffer
         import time
         end_time = time.time() + timeout
-        data = ''
-        try:
-            data = self._read(count)
-            while not data and not self.is_closed():
-                data = self._read(count)
-                if data:
-                    break
-                if time.time() > end_time:
-                    raise Timeout
-                time.sleep(loop_delay)
-        except EOF:
-            return data
-        return data
-
-    def _read(self, count): 
-        self.ensure_open()
-        if not self.has_input:
-            raise EOF, "No more input"
-        import socket
-        bytes = ''
-        try:
+        import cStringIO as StringIO
+        data = StringIO.StringIO()
+        if self.buffer:
+            data.write(self.buffer)
+            self.buffer = ''
+        if not self.stream_finished:
             try:
-                bytes = self.sock.recv(count)
-            except socket.timeout, t:
-                pass
-        except IOError, ioe:
-            #raise RuntimeError(dir(ioe))
-            if ioe.errno in (
-                socket.EBADF,
-            ):
-                # Closed
-                self.socket_closed = True
-                raise Closed, "could not read"
-            else:
+                while data.tell() < count and not self.is_closed() and not self.stream_finished:
+                    try:
+                        assert not self.stream_finished
+                        bytes = self.sock.recv(count)
+                        if not bytes:
+                            self.has_input = False
+                            self.stream_finished = True
+                            break
+                    except socket.timeout, t:
+                        pass
+                    else:
+                        data.write(bytes)
+                        if time.time() > end_time:
+                            raise Timeout
+                        time.sleep(loop_delay)
+            except EOF:
                 raise
-        if not bytes:
-            # No data without an e_would_block (11) means no more data. At all.
+                pass
+        all_data = data.getvalue()
+        requested_data, extra_data = all_data[:count], all_data[count:]
+        self.pushback(extra_data)
+        if self.stream_finished and not self.buffer:
             self.has_input = False
-        return bytes
-    
+        return requested_data
+
     def flush(self):
         if not self.USE_FILE:
             # Sockets aren't very flushable
@@ -99,7 +89,8 @@ class PushbackStream(object):
 
     def close(self):
         self.socket_closed = True
-        self.has_input = False
+        self.stream_finished = True
+#        self.has_input = False
         self.sock.close()
 Stream = PushbackStream
 

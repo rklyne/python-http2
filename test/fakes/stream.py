@@ -13,9 +13,9 @@ class FakeStream(object):
         self.sb = StringIO.StringIO()
         self.returned_empty = False
     def recv(self, count):
-        result, self.data= self.data[:count], self.data[count:]
         if self.returned_empty:
             raise RuntimeError("Called read on an empty socket")
+        result, self.data= self.data[:count], self.data[count:]
         if not result:
             self.returned_empty = True
         return result
@@ -65,4 +65,9 @@ class FakeStreamTests(unittest.TestCase):
         s.sendall(test_string)
         self.assertEqual(s.get_written_data(), test_string)
 
+    def reading_empty(self):
+        data_in = "data stream"
+        s = FakeStream(data_in)
+        d = s.recv(100)
+        
 

@@ -81,6 +81,9 @@ class TestSocketStream(unittest.TestCase):
         self.port = self.PORT
         def stream_handler(stream):
             stream.write("banana")
+            import time
+            time.sleep(0.1)
+            stream.write("monkey")
             stream.close()
         self.server = http2.sockets.Server(self.host, self.port, stream_handler)
         self.server.start_thread()
@@ -94,7 +97,10 @@ class TestSocketStream(unittest.TestCase):
         import http2.sockets
         s = http2.sockets.Stream(self.host, self.port)
         data = s.read(6)
-        s.close()
         self.assertEqual(data, "banana")
+        # Test that the timeout works - should get data from this.
+        data2 = s.read(6, timeout=1)
+        s.close()
+        self.assertEqual(data2, "monkey")
         
 
